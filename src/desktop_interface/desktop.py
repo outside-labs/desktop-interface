@@ -11,6 +11,7 @@ from .displays import Displays
 from .errors import ClosedSessionError, UnsupportedPlatformError
 from .identifiers import Backend
 from .permissions import Permissions
+from .windows import Windows
 
 
 class Desktop:
@@ -29,6 +30,7 @@ class Desktop:
         self._closed = False
         self._permissions = Permissions(self)
         self._displays = Displays(self)
+        self._windows = Windows(self)
 
     @property
     def backend(self) -> Backend:
@@ -41,6 +43,10 @@ class Desktop:
     @property
     def displays(self) -> Displays:
         return self._displays
+
+    @property
+    def windows(self) -> Windows:
+        return self._windows
 
     @property
     def closed(self) -> bool:

@@ -19,12 +19,14 @@ from .errors import (
     PermissionDeniedError,
     PermissionRequiredError,
     StaleTargetError,
+    TargetNotFoundError,
     UnsupportedFeatureError,
     UnsupportedPlatformError,
 )
 from .geometry import Point, Rect, Size
 from .identifiers import Backend, DisplayId, WindowId
 from .permissions import Permission, Permissions, PermissionStatus
+from .windows import Window, WindowInfo, Windows
 
 __version__ = "0.1.0"
 
@@ -34,6 +36,6 @@ __all__ = [
     "NativeCallError", "NativeLibraryError", "NativeSymbolError",
     "OperationTimeoutError", "PermissionDeniedError", "PermissionRequiredError",
     "Permission", "Permissions", "PermissionState", "PermissionStatus", "PixelLocation", "PixelPoint", "PixelSize",
-    "Point", "Rect", "Size", "StaleTargetError", "Support",
-    "UnsupportedFeatureError", "UnsupportedPlatformError", "WindowId", "__version__",
+    "Point", "Rect", "Size", "StaleTargetError", "Support", "TargetNotFoundError",
+    "UnsupportedFeatureError", "UnsupportedPlatformError", "Window", "WindowId", "WindowInfo", "Windows", "__version__",
 ]

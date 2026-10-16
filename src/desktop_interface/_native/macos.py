@@ -15,6 +15,9 @@ CFTypeID = c.c_uint64
 CFTypeRef = c.c_void_p
 CFStringRef = c.c_void_p
 CFStringEncoding = c.c_uint32
+CFNumberType = CFIndex
+CGWindowID = c.c_uint32
+CGWindowListOption = c.c_uint32
 UTF8 = 0x08000100
 
 
@@ -53,6 +56,19 @@ CF_DICTIONARY_CREATE = FunctionSpec(
     CFTypeRef,
 )
 CF_DICTIONARY_VALUE = FunctionSpec("CFDictionaryGetValue", (CFTypeRef, CFTypeRef), CFTypeRef)
+CF_ARRAY_CREATE = FunctionSpec(
+    "CFArrayCreate", (CFTypeRef, c.POINTER(CFTypeRef), CFIndex, c.c_void_p), CFTypeRef,
+)
+CF_ARRAY_COUNT = FunctionSpec("CFArrayGetCount", (CFTypeRef,), CFIndex)
+CF_ARRAY_VALUE = FunctionSpec("CFArrayGetValueAtIndex", (CFTypeRef, CFIndex), CFTypeRef)
+CF_TYPE_ID = FunctionSpec("CFGetTypeID", (CFTypeRef,), CFTypeID)
+CF_ARRAY_TYPE = FunctionSpec("CFArrayGetTypeID", (), CFTypeID)
+CF_DICTIONARY_TYPE = FunctionSpec("CFDictionaryGetTypeID", (), CFTypeID)
+CF_NUMBER_TYPE = FunctionSpec("CFNumberGetTypeID", (), CFTypeID)
+CF_STRING_TYPE = FunctionSpec("CFStringGetTypeID", (), CFTypeID)
+CF_BOOLEAN_TYPE = FunctionSpec("CFBooleanGetTypeID", (), CFTypeID)
+CF_NUMBER_VALUE = FunctionSpec("CFNumberGetValue", (CFTypeRef, CFNumberType, c.c_void_p), Boolean)
+CF_BOOLEAN_VALUE = FunctionSpec("CFBooleanGetValue", (CFTypeRef,), Boolean)
 AX_TRUSTED = FunctionSpec("AXIsProcessTrusted", (), Boolean)
 AX_REQUEST = FunctionSpec("AXIsProcessTrustedWithOptions", (CFTypeRef,), Boolean)
 CG_PREFLIGHT_LISTEN = FunctionSpec("CGPreflightListenEventAccess", (), c.c_bool)
@@ -77,6 +93,11 @@ CG_MODE_WIDTH = FunctionSpec("CGDisplayModeGetWidth", (CFTypeRef,), c.c_size_t)
 CG_MODE_HEIGHT = FunctionSpec("CGDisplayModeGetHeight", (CFTypeRef,), c.c_size_t)
 CG_MODE_PIXEL_WIDTH = FunctionSpec("CGDisplayModeGetPixelWidth", (CFTypeRef,), c.c_size_t)
 CG_MODE_PIXEL_HEIGHT = FunctionSpec("CGDisplayModeGetPixelHeight", (CFTypeRef,), c.c_size_t)
+CG_WINDOW_LIST = FunctionSpec("CGWindowListCopyWindowInfo", (CGWindowListOption, CGWindowID), CFTypeRef)
+CG_WINDOW_DESCRIPTIONS = FunctionSpec("CGWindowListCreateDescriptionFromArray", (CFTypeRef,), CFTypeRef)
+CG_RECT_FROM_DICTIONARY = FunctionSpec(
+    "CGRectMakeWithDictionaryRepresentation", (CFTypeRef, c.POINTER(CGRect)), c.c_bool,
+)
 
 
 def core_foundation() -> NativeLibrary:

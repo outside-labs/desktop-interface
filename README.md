@@ -12,8 +12,10 @@ are checked against system SDK headers, with a synthetic CoreFoundation string
 used to verify Unicode and ownership without accessing the desktop.
 An explicit macOS `Desktop` session provides nonprompting permission checks and
 separate permission requests. Active-display snapshots provide logical bounds,
-backing-pixel dimensions, rotation and main/mirror metadata. Window control,
-keyboard/mouse input, accessibility inspection, and capture remain planned.
+backing-pixel dimensions, rotation and main/mirror metadata. Window discovery
+provides copied metadata, exact filters and references that revalidate their
+native ID and owner. Window control, keyboard/mouse input, accessibility
+inspection, and capture remain planned.
 Importing the package does not load native libraries or request system access.
 
 Python 3.12 or later is required. Development uses Python 3.14; CI checks Python
@@ -45,7 +47,7 @@ their context manager; retained managers reject operations after session close.
 ## Display snapshots
 
 ```python
-from desktop_interface import Desktop, Point
+from desktop_interface import Desktop
 
 with Desktop() as desktop:
     topology = desktop.displays.snapshot()
@@ -69,6 +71,39 @@ Overlapping displays require an explicit display ID. A converted pixel location
 belongs to its exact topology snapshot and cannot be silently reused with a
 different snapshot. Old snapshots remain useful as immutable data after close.
 
+## Windows
+
+```python
+from desktop_interface import Desktop
+
+with Desktop() as desktop:
+    for record in desktop.windows.list():
+        print(record.id, record.process_id, record.bounds)
+```
+
+`list(process_id=..., onscreen_only=True)` copies matching metadata. The process
+filter is applied before decoding title or owner text. Missing/redacted names,
+bounds and owner identity remain `None`; they do not imply a permission verdict.
+The macOS on-screen flag follows its native contract: an absent flag means false.
+
+`get(window_id)` creates a reference to an explicit ID. `find(process_id=...,
+title=..., owner_name=...)` uses exact, case-sensitive matching and requires a
+unique result. No match raises `TargetNotFoundError`; multiple matches raise
+`AmbiguousTargetError`. A missing owner can be listed but cannot be bound to a
+reference whose identity could not be verified.
+
+`window.read()` queries that specific window again and rejects disappearance
+or a changed owner with `StaleTargetError`. Its `initial` metadata remains an
+immutable snapshot. Native IDs and PIDs can both be recycled, so this pair is
+not a durable identity across process/session restarts. All live references
+reject reads after their owning desktop session closes.
+
+Each metadata read is bounded to 4096 records and each text field to 32768
+UTF-16 units / 65536 UTF-8 bytes. Malformed or excessive native metadata fails
+explicitly instead of returning a silently truncated list. A Quartz API null
+result is a native failure, distinct from a valid empty list; a GUI session
+or window server may be unavailable. No permission request is triggered.
+
 ## Development
 
 ```sh
@@ -80,6 +115,8 @@ uv run --frozen python scripts/check_macos_abi.py
 # Opt-in, nonprompting native grant check; never run by default CI:
 uv run --frozen python scripts/check_native_desktop.py --permissions
 uv run --frozen python scripts/check_native_desktop.py --displays
+# In a logged-in GUI session, for an explicitly selected synthetic fixture:
+# uv run --frozen python scripts/check_native_desktop.py --window-id ID --process-id PID
 ```
 
 The distribution check builds wheel and source archives, rebuilds the source
