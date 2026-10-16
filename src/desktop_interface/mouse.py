@@ -37,7 +37,7 @@ def _point(value):
 class Mouse:
     def __init__(self, desktop: "Desktop"):
         self._desktop = desktop
-        self._owned: dict[MouseButton, tuple[int, Point]] = {}
+        self._owned: dict[MouseButton, tuple[int, Point, object]] = {}
 
     def position(self) -> Point:
         with self._desktop._operation() as backend:
@@ -82,8 +82,8 @@ class Mouse:
             button = self._motion_button(backend)
             backend.pointer_move(point, button, self._keys())
             if button in self._owned:
-                count, _ = self._owned[button]
-                self._owned[button] = (count, point)
+                count, _, token = self._owned[button]
+                self._owned[button] = (count, point, token)
 
     def move(self, position: Point, *, duration: float = 0, cancel=None):
         _point(position)
@@ -97,25 +97,26 @@ class Mouse:
     def _acquire(self, backend, button, *, click_count=1):
         backend.require_post_access()
         if button in self._owned or backend.button_state(button):
-            return False
+            return None
         if any(other in self._owned or backend.button_state(other)
                for other in MouseButton if other != button):
             raise UnsupportedFeatureError("Multiple held mouse buttons are not supported")
         point = backend.pointer_position()
         self._inside(backend.display_snapshot(), point)
-        self._owned[button] = (click_count, point)
+        token = object()
+        self._owned[button] = (click_count, point, token)
         try:
             backend.button_event(button, True, point, self._keys(), click_count)
         except BaseException:
-            self._release(backend, (button,))
+            self._release(backend, {button: token})
             raise
-        return True
+        return token
 
     def _release(self, backend, buttons):
-        def release(button):
-            if button not in self._owned:
+        def release(button, token):
+            if button not in self._owned or self._owned[button][2] is not token:
                 return
-            count, point = self._owned[button]
+            count, point, _ = self._owned[button]
             try:
                 try:
                     point = backend.pointer_position()
@@ -123,19 +124,21 @@ class Mouse:
                     pass  # last known point still permits a cleanup event
                 backend.button_event(button, False, point, self._keys(), count)
             finally:
-                self._owned.pop(button, None)
-        cleanup([lambda button=button: release(button) for button in reversed(tuple(buttons))])
+                if button in self._owned and self._owned[button][2] is token:
+                    self._owned.pop(button, None)
+        cleanup([lambda button=button, token=token: release(button, token)
+                 for button, token in reversed(tuple(buttons.items()))])
 
     def down(self, button: MouseButton = MouseButton.LEFT) -> bool:
         _button(button)
         with self._desktop._operation() as backend:
-            return self._acquire(backend, button)
+            return bool(self._acquire(backend, button))
 
     def up(self, button: MouseButton = MouseButton.LEFT) -> bool:
         _button(button)
         with self._desktop._operation() as backend:
             owned = button in self._owned
-            self._release(backend, (button,))
+            self._release(backend, {button: self._owned[button][2]} if owned else {})
             return owned
 
     @contextmanager
@@ -148,7 +151,7 @@ class Mouse:
         finally:
             if acquired:
                 with self._desktop._lock:
-                    self._release(backend, (button,))
+                    self._release(backend, {button: acquired})
 
     def click(self, button: MouseButton = MouseButton.LEFT, *, count: int = 1,
               interval: float = 0.1, cancel=None):
@@ -167,7 +170,7 @@ class Mouse:
                 acquired = self._acquire(backend, button, click_count=index + 1)
                 if not acquired:
                     return
-                self._release(backend, (button,))
+                self._release(backend, {button: acquired})
 
     def scroll(self, vertical: int, horizontal: int = 0, *, unit: ScrollUnit = ScrollUnit.LINE):
         for value in (vertical, horizontal):
@@ -198,7 +201,7 @@ class Mouse:
                 self._move_path(backend, topology, path, seconds, cancel)
             finally:
                 if acquired:
-                    self._release(backend, (button,))
+                    self._release(backend, {button: acquired})
 
     def _close(self, backend):
-        self._release(backend, tuple(self._owned))
+        self._release(backend, {button: data[2] for button, data in self._owned.items()})

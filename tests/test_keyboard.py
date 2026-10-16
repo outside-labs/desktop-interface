@@ -100,6 +100,16 @@ class KeyboardTests(unittest.TestCase):
         self.assertFalse(keyboard.up(Key.A))
         self.assertEqual(self.events(), [(Key.A, True), (Key.A, False)])
 
+    def test_old_context_does_not_release_a_later_acquisition_of_the_same_key(self):
+        keyboard = self.session()
+        with keyboard.hold(Key.A):
+            keyboard.up(Key.A)
+            keyboard.down(Key.A)
+        self.assertTrue(keyboard._owned)
+        self.assertEqual(self.events(), [(Key.A, True), (Key.A, False), (Key.A, True)])
+        self.desktop.close()
+        self.assertEqual(self.events()[-1], (Key.A, False))
+
     def test_unicode_scalars_preserve_pairs_and_do_not_translate_physical_keys(self):
         keyboard = self.session()
         keyboard.type_text("é👋\0")

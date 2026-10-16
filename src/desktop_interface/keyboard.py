@@ -119,7 +119,7 @@ def _keys(values):
 class Keyboard:
     def __init__(self, desktop: "Desktop") -> None:
         self._desktop = desktop
-        self._owned: dict[Key, None] = {}
+        self._owned: dict[Key, object] = {}
 
     def is_pressed(self, key: Key) -> bool:
         _key(key)
@@ -127,25 +127,28 @@ class Keyboard:
             return key in self._owned or backend.key_state(key)
 
     def _release(self, backend, keys):
-        def release(key):
-            if key not in self._owned:
+        def release(key, token):
+            if key not in self._owned or self._owned[key] is not token:
                 return
             try:
                 backend.key_event(key, False, tuple(item for item in self._owned if item != key))
             finally:
-                self._owned.pop(key, None)
-        cleanup([lambda key=key: release(key) for key in reversed(tuple(keys))])
+                if self._owned.get(key) is token:
+                    self._owned.pop(key, None)
+        cleanup([lambda key=key, token=token: release(key, token)
+                 for key, token in reversed(tuple(keys.items()))])
 
     def _acquire(self, backend, keys):
         backend.require_post_access()
-        acquired = []
+        acquired = {}
         try:
             for key in keys:
                 if key in self._owned or backend.key_state(key):
                     continue
                 # Record intent before posting: an exception may follow partial delivery.
-                self._owned[key] = None
-                acquired.append(key)
+                token = object()
+                self._owned[key] = token
+                acquired[key] = token
                 backend.key_event(key, True, tuple(self._owned))
         except BaseException:
             self._release(backend, acquired)
@@ -161,7 +164,7 @@ class Keyboard:
         _key(key)
         with self._desktop._operation() as backend:
             owned = key in self._owned
-            self._release(backend, (key,))
+            self._release(backend, {key: self._owned.get(key)})
             return owned
 
     @contextmanager
@@ -219,4 +222,4 @@ class Keyboard:
                 backend.text_pair(chunk, tuple(self._owned))
 
     def _close(self, backend):
-        self._release(backend, tuple(self._owned))
+        self._release(backend, dict(self._owned))
