@@ -112,14 +112,18 @@ def main():
                             raise AssertionError("Fixture focus was lost before pointer check")
                     try:
                         focused()
-                        desktop.mouse.move(Point(record.bounds.x + 80, record.bounds.y + 90))
+                        start = Point(record.bounds.x + 80, record.bounds.y + 90)
+                        end = Point(record.bounds.x + 160, record.bounds.y + 110)
+                        desktop.mouse.move(start)
+                        wait_for(lambda: desktop.mouse.position() == start)
                         before_mouse = state()
                         focused()
                         desktop.mouse.click()
                         wait_for(lambda: state()["clicks"] > before_mouse["clicks"]
                                  and state()["releases"] > before_mouse["releases"])
                         focused()
-                        desktop.mouse.drag(Point(record.bounds.x + 160, record.bounds.y + 110), duration=0.2)
+                        desktop.mouse.drag(end, duration=0.2)
+                        wait_for(lambda: desktop.mouse.position() == end)
                         wait_for(lambda: state()["drags"] > before_mouse["drags"]
                                  and state()["releases"] >= before_mouse["releases"] + 2)
                         focused()
@@ -128,6 +132,7 @@ def main():
                         result["mouse_delivery"] = True
                     finally:
                         desktop.mouse.move(saved)
+                        wait_for(lambda: desktop.mouse.position() == saved)
                 print(json.dumps(result, sort_keys=True))
             finally:
                 process.terminate()
