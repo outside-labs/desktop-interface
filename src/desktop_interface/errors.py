@@ -5,6 +5,10 @@ class DesktopError(Exception):
     """Base class for expected desktop operation failures."""
 
 
+class ClosedSessionError(DesktopError):
+    """The operation belongs to a desktop session that has been closed."""
+
+
 class UnsupportedPlatformError(DesktopError):
     """The selected native backend cannot run on this system."""
 

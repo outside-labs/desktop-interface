@@ -106,6 +106,29 @@ class BindingTests(unittest.TestCase):
         self.assertTrue(all(function is functions[0] for function in functions))
         loader.assert_called_once()
 
+    def test_exported_variable_uses_an_explicit_type_and_shared_lazy_handle(self):
+        handle = SimpleNamespace(Fixture=Mock())
+        library, loader = self.library(handle)
+        ctype = Mock()
+        ctype.in_dll.return_value = ctypes.c_void_p(123)
+        self.assertEqual(library.variable("FixtureGlobal", ctype).value, 123)
+        library.bind(FunctionSpec("Fixture", (), None))
+        ctype.in_dll.assert_called_once_with(handle, "FixtureGlobal")
+        loader.assert_called_once()
+        with self.assertRaises(ValueError):
+            library.variable("", ctype)
+        with self.assertRaises(TypeError):
+            library.variable("FixtureGlobal", object)
+
+    def test_missing_exported_variable_preserves_the_native_failure(self):
+        library, _ = self.library(SimpleNamespace())
+        cause = ValueError("Fixture global is missing")
+        ctype = Mock()
+        ctype.in_dll.side_effect = cause
+        with self.assertRaises(NativeSymbolError) as result:
+            library.variable("MissingGlobal", ctype)
+        self.assertIs(result.exception.__cause__, cause)
+
 
 class OwnershipTests(unittest.TestCase):
     def test_context_releases_once_even_when_body_fails(self):

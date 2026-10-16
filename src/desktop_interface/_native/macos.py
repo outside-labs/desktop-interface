@@ -46,6 +46,21 @@ CF_STRING_BYTES = FunctionSpec(
      c.POINTER(c.c_uint8), CFIndex, c.POINTER(CFIndex)), CFIndex,
 )
 
+CF_DICTIONARY_CREATE = FunctionSpec(
+    "CFDictionaryCreate",
+    (CFTypeRef, c.POINTER(CFTypeRef), c.POINTER(CFTypeRef), CFIndex, c.c_void_p, c.c_void_p),
+    CFTypeRef,
+)
+CF_DICTIONARY_VALUE = FunctionSpec("CFDictionaryGetValue", (CFTypeRef, CFTypeRef), CFTypeRef)
+AX_TRUSTED = FunctionSpec("AXIsProcessTrusted", (), Boolean)
+AX_REQUEST = FunctionSpec("AXIsProcessTrustedWithOptions", (CFTypeRef,), Boolean)
+CG_PREFLIGHT_LISTEN = FunctionSpec("CGPreflightListenEventAccess", (), c.c_bool)
+CG_PREFLIGHT_POST = FunctionSpec("CGPreflightPostEventAccess", (), c.c_bool)
+CG_PREFLIGHT_CAPTURE = FunctionSpec("CGPreflightScreenCaptureAccess", (), c.c_bool)
+CG_REQUEST_LISTEN = FunctionSpec("CGRequestListenEventAccess", (), c.c_bool)
+CG_REQUEST_POST = FunctionSpec("CGRequestPostEventAccess", (), c.c_bool)
+CG_REQUEST_CAPTURE = FunctionSpec("CGRequestScreenCaptureAccess", (), c.c_bool)
+
 
 def core_foundation() -> NativeLibrary:
     return NativeLibrary(
@@ -57,5 +72,12 @@ def core_foundation() -> NativeLibrary:
 def core_graphics() -> NativeLibrary:
     return NativeLibrary(
         "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+        platform="darwin",
+    )
+
+
+def application_services() -> NativeLibrary:
+    return NativeLibrary(
+        "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices",
         platform="darwin",
     )
