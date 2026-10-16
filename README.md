@@ -10,8 +10,7 @@ The private native layer provides explicit function signatures, lazy system
 library loading, and deterministic reference cleanup. Its macOS ABI declarations
 are checked against system SDK headers, with a synthetic CoreFoundation string
 used to verify Unicode and ownership without accessing the desktop.
-Display discovery,
-window control, keyboard and mouse input, accessibility inspection, and screen
+Display discovery, window control, keyboard and mouse input, accessibility inspection, and screen
 capture are planned features. There are no desktop automation operations yet.
 Importing the package does not load native libraries or request system access.
 

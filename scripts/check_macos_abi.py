@@ -2,6 +2,7 @@
 
 import ctypes as c
 from pathlib import Path
+import platform
 import subprocess
 import sys
 import tempfile
@@ -96,6 +97,7 @@ def main() -> None:
     if sys.platform != "darwin":
         print("macOS ABI check skipped on this platform")
         return
+    print(f"macOS {platform.mac_ver()[0]} {platform.machine()}, Python {platform.python_version()}")
     check_layouts()
     check_synthetic_reference()
 
