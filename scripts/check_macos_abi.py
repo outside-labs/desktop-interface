@@ -19,6 +19,7 @@ TYPES = (
     "CGFloat", "CGDirectDisplayID", "CGError", "Boolean", "boolean_t", "CFIndex", "CFTypeID",
     "CFTypeRef", "CFStringRef", "CFStringEncoding", "CGPoint", "CGSize", "CGRect", "CFRange",
     "CFNumberType", "CGWindowID", "CGWindowListOption",
+    "AXError", "AXValueType", "pid_t",
 )
 FIELDS = {"CGPoint": ("x", "y"), "CGSize": ("width", "height"),
           "CGRect": ("origin", "size"), "CFRange": ("location", "length")}
@@ -28,6 +29,7 @@ def check_layouts() -> None:
     source = (
         "#include <CoreFoundation/CoreFoundation.h>\n"
         "#include <CoreGraphics/CoreGraphics.h>\n"
+        "#include <ApplicationServices/ApplicationServices.h>\n"
         "#include <stddef.h>\n#include <stdbool.h>\n#include <stdio.h>\nint main(void) {\n"
         'printf("bool %zu %zu\\n", sizeof(bool), _Alignof(bool));\n'
         + "\n".join(
@@ -157,6 +159,22 @@ def check_synthetic_windows() -> None:
     print("Synthetic Quartz window metadata decoding and owned-buffer cleanup verified")
 
 
+def check_synthetic_ax_values() -> None:
+    library, foundation = macos.application_services(), macos.core_foundation()
+    release = foundation.bind(macos.CF_RELEASE)
+    for kind, value in ((1, macos.CGPoint(-20.5, 30)), (2, macos.CGSize(400, 250))):
+        pointer = library.bind(macos.AX_VALUE_CREATE)(kind, c.byref(value))
+        if not pointer:
+            raise NativeCallError("AXValueCreate")
+        with OwnedReference(pointer, release) as owned:
+            output = type(value)()
+            if (library.bind(macos.AX_VALUE_TYPE)(owned.pointer) != kind or
+                    not library.bind(macos.AX_VALUE_GET)(owned.pointer, kind, c.byref(output)) or
+                    bytes(output) != bytes(value)):
+                raise AssertionError("Synthetic AX geometry did not round-trip")
+    print("Synthetic Accessibility geometry and ownership verified")
+
+
 def main() -> None:
     if sys.platform != "darwin":
         print("macOS ABI check skipped on this platform")
@@ -165,6 +183,7 @@ def main() -> None:
     check_layouts()
     check_synthetic_reference()
     check_synthetic_windows()
+    check_synthetic_ax_values()
 
 
 if __name__ == "__main__":

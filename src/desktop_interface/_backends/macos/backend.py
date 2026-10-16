@@ -4,10 +4,12 @@ from ...capabilities import Capability, Feature, PermissionState, Support
 from ...displays import DisplayTopology
 from ...identifiers import Backend, WindowId
 from ...permissions import Permission, PermissionStatus
+from ...errors import PermissionRequiredError
 from ...windows import WindowInfo
 from .displays import MacOSDisplays
 from .permissions import MacOSPermissions
 from .windows import MacOSWindows
+from .window_control import MacOSWindowControl
 
 
 class MacOSBackend:
@@ -15,16 +17,18 @@ class MacOSBackend:
         self._permissions = MacOSPermissions()
         self._displays = MacOSDisplays()
         self._windows = MacOSWindows()
+        self._window_control = MacOSWindowControl(self._windows)
 
     def capabilities(self) -> tuple[Capability, ...]:
         descriptions = {
             Feature.DISPLAY_INFO: "Active drawable display metadata.",
             Feature.WINDOW_INFO: "Read-only window metadata; individual fields may be redacted.",
+            Feature.WINDOW_CONTROL: "Accessibility window control; requires a unique metadata match and access.",
         }
         return tuple(
             Capability(Backend.MACOS, feature,
                        Support.SUPPORTED if feature in descriptions else Support.UNSUPPORTED,
-                       PermissionState.NOT_REQUIRED if feature in descriptions else PermissionState.UNKNOWN,
+                       PermissionState.NOT_REQUIRED if feature in (Feature.DISPLAY_INFO, Feature.WINDOW_INFO) else PermissionState.UNKNOWN,
                        descriptions.get(feature, "This desktop feature is not implemented yet."))
             for feature in Feature
         )
@@ -43,3 +47,9 @@ class MacOSBackend:
 
     def window_info(self, window_id: WindowId, *, expected_process_id: int | None = None) -> WindowInfo:
         return self._windows.get(window_id, expected_process_id=expected_process_id)
+
+    def window_control(self, window_id, process_id, action, value, timeout):
+        if not self.check_permission(Permission.ACCESSIBILITY).granted:
+            raise PermissionRequiredError("Window control requires Accessibility access")
+        info = self._windows.get(window_id, expected_process_id=process_id)
+        return self._window_control.run(info, action, value, timeout)

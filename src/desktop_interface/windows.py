@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .errors import AmbiguousTargetError, StaleTargetError, TargetNotFoundError, UnsupportedFeatureError
-from .geometry import Rect, _finite
+from .geometry import Point, Rect, Size, _finite
 from .identifiers import WindowId
 
 if TYPE_CHECKING:
@@ -51,6 +51,22 @@ class WindowInfo:
                 raise ValueError("alpha must be between zero and one")
 
 
+@dataclass(frozen=True, slots=True)
+class WindowState:
+    """Accessibility state copied from a uniquely matched window."""
+
+    bounds: Rect | None
+    minimized: bool | None
+    focused: bool | None
+
+    def __post_init__(self):
+        if self.bounds is not None and not isinstance(self.bounds, Rect):
+            raise TypeError("bounds must be a Rect or None")
+        for name in ("minimized", "focused"):
+            if getattr(self, name) is not None and not isinstance(getattr(self, name), bool):
+                raise TypeError(f"{name} must be bool or None")
+
+
 class Window:
     """A session-local ID/owner pair, revalidated on each read.
 
@@ -90,6 +106,40 @@ class Window:
             if info.id != self.id or info.process_id != self.process_id:
                 raise StaleTargetError("Window identity no longer matches this reference")
             return info
+
+    def _control(self, action=None, value=None, timeout=None):
+        if timeout is not None:
+            timeout = _finite(timeout, "timeout")
+            if not 0 <= timeout <= 30:
+                raise ValueError("timeout must be between zero and 30 seconds")
+        with self._desktop._operation() as backend:
+            try:
+                return backend.window_control(self.id, self.process_id, action, value, timeout)
+            except TargetNotFoundError as error:
+                raise StaleTargetError("Window disappeared or its owner changed") from error
+
+    def state(self) -> WindowState:
+        return self._control()
+
+    def move(self, position: Point, *, timeout: float | None = None) -> WindowState | None:
+        if not isinstance(position, Point):
+            raise TypeError("position must be a Point")
+        return self._control("move", position, timeout)
+
+    def resize(self, size: Size, *, timeout: float | None = None) -> WindowState | None:
+        if not isinstance(size, Size):
+            raise TypeError("size must be a Size")
+        if size.width <= 0 or size.height <= 0:
+            raise ValueError("window size must be positive")
+        return self._control("resize", size, timeout)
+
+    def focus(self, *, timeout: float | None = None) -> WindowState | None:
+        return self._control("focus", timeout=timeout)
+
+    def minimize(self, minimized: bool = True, *, timeout: float | None = None) -> WindowState | None:
+        if not isinstance(minimized, bool):
+            raise TypeError("minimized must be bool")
+        return self._control("minimize", minimized, timeout)
 
 
 class Windows:

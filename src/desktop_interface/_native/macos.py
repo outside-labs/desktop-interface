@@ -19,6 +19,9 @@ CFNumberType = CFIndex
 CGWindowID = c.c_uint32
 CGWindowListOption = c.c_uint32
 UTF8 = 0x08000100
+AXError = c.c_int32
+AXValueType = c.c_uint32
+pid_t = c.c_int32
 
 
 class CGPoint(c.Structure):
@@ -71,6 +74,20 @@ CF_NUMBER_VALUE = FunctionSpec("CFNumberGetValue", (CFTypeRef, CFNumberType, c.c
 CF_BOOLEAN_VALUE = FunctionSpec("CFBooleanGetValue", (CFTypeRef,), Boolean)
 AX_TRUSTED = FunctionSpec("AXIsProcessTrusted", (), Boolean)
 AX_REQUEST = FunctionSpec("AXIsProcessTrustedWithOptions", (CFTypeRef,), Boolean)
+AX_APPLICATION = FunctionSpec("AXUIElementCreateApplication", (pid_t,), CFTypeRef)
+AX_ELEMENT_TYPE = FunctionSpec("AXUIElementGetTypeID", (), CFTypeID)
+AX_PID = FunctionSpec("AXUIElementGetPid", (CFTypeRef, c.POINTER(pid_t)), AXError)
+AX_COPY = FunctionSpec("AXUIElementCopyAttributeValue", (CFTypeRef, CFStringRef, c.POINTER(CFTypeRef)), AXError)
+AX_SETTABLE = FunctionSpec("AXUIElementIsAttributeSettable", (CFTypeRef, CFStringRef, c.POINTER(Boolean)), AXError)
+AX_SET = FunctionSpec("AXUIElementSetAttributeValue", (CFTypeRef, CFStringRef, CFTypeRef), AXError)
+AX_ACTIONS = FunctionSpec("AXUIElementCopyActionNames", (CFTypeRef, c.POINTER(CFTypeRef)), AXError)
+AX_ACTION = FunctionSpec("AXUIElementPerformAction", (CFTypeRef, CFStringRef), AXError)
+AX_TIMEOUT = FunctionSpec("AXUIElementSetMessagingTimeout", (CFTypeRef, c.c_float), AXError)
+AX_VALUE_TYPE_ID = FunctionSpec("AXValueGetTypeID", (), CFTypeID)
+AX_VALUE_TYPE = FunctionSpec("AXValueGetType", (CFTypeRef,), AXValueType)
+AX_VALUE_CREATE = FunctionSpec("AXValueCreate", (AXValueType, c.c_void_p), CFTypeRef)
+AX_VALUE_GET = FunctionSpec("AXValueGetValue", (CFTypeRef, AXValueType, c.c_void_p), Boolean)
+CF_EQUAL = FunctionSpec("CFEqual", (CFTypeRef, CFTypeRef), Boolean)
 CG_PREFLIGHT_LISTEN = FunctionSpec("CGPreflightListenEventAccess", (), c.c_bool)
 CG_PREFLIGHT_POST = FunctionSpec("CGPreflightPostEventAccess", (), c.c_bool)
 CG_PREFLIGHT_CAPTURE = FunctionSpec("CGPreflightScreenCaptureAccess", (), c.c_bool)
