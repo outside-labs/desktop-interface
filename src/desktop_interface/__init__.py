@@ -6,9 +6,12 @@ does not load system libraries, request permission, or interact with the desktop
 
 from .capabilities import Capability, Feature, PermissionState, Support
 from .desktop import Desktop
+from .displays import Display, Displays, DisplayTopology, PixelLocation, PixelPoint, PixelSize
 from .errors import (
+    AmbiguousTargetError,
     ClosedSessionError,
     DesktopError,
+    DisplayTopologyChangedError,
     NativeCallError,
     NativeLibraryError,
     NativeSymbolError,
@@ -26,9 +29,11 @@ from .permissions import Permission, Permissions, PermissionStatus
 __version__ = "0.1.0"
 
 __all__ = [
-    "Backend", "Capability", "ClosedSessionError", "Desktop", "DesktopError", "DisplayId", "Feature",
+    "AmbiguousTargetError", "Backend", "Capability", "ClosedSessionError", "Desktop", "DesktopError",
+    "Display", "DisplayId", "Displays", "DisplayTopology", "DisplayTopologyChangedError", "Feature",
     "NativeCallError", "NativeLibraryError", "NativeSymbolError",
     "OperationTimeoutError", "PermissionDeniedError", "PermissionRequiredError",
-    "Permission", "Permissions", "PermissionState", "PermissionStatus", "Point", "Rect", "Size", "StaleTargetError", "Support",
+    "Permission", "Permissions", "PermissionState", "PermissionStatus", "PixelLocation", "PixelPoint", "PixelSize",
+    "Point", "Rect", "Size", "StaleTargetError", "Support",
     "UnsupportedFeatureError", "UnsupportedPlatformError", "WindowId", "__version__",
 ]

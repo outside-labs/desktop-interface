@@ -47,5 +47,13 @@ class StaleTargetError(DesktopError):
     """The referenced window or UI element no longer identifies a live target."""
 
 
+class AmbiguousTargetError(DesktopError):
+    """More than one target matches and an explicit selection is required."""
+
+
+class DisplayTopologyChangedError(DesktopError):
+    """Display state changed throughout a bounded snapshot attempt."""
+
+
 class OperationTimeoutError(DesktopError):
     """A bounded wait expired before the requested condition was observed."""

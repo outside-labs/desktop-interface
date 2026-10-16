@@ -7,6 +7,7 @@ from typing import Iterator
 
 from ._backends.macos.backend import MacOSBackend
 from .capabilities import Capability
+from .displays import Displays
 from .errors import ClosedSessionError, UnsupportedPlatformError
 from .identifiers import Backend
 from .permissions import Permissions
@@ -27,6 +28,7 @@ class Desktop:
         self._lock = RLock()
         self._closed = False
         self._permissions = Permissions(self)
+        self._displays = Displays(self)
 
     @property
     def backend(self) -> Backend:
@@ -35,6 +37,10 @@ class Desktop:
     @property
     def permissions(self) -> Permissions:
         return self._permissions
+
+    @property
+    def displays(self) -> Displays:
+        return self._displays
 
     @property
     def closed(self) -> bool:
