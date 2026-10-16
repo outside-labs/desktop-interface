@@ -12,6 +12,7 @@ from .errors import (
     ClosedSessionError,
     DesktopError,
     DisplayTopologyChangedError,
+    InputCancelledError,
     NativeCallError,
     NativeLibraryError,
     NativeSymbolError,
@@ -25,6 +26,7 @@ from .errors import (
 )
 from .geometry import Point, Rect, Size
 from .identifiers import Backend, DisplayId, WindowId
+from .keyboard import Key, Keyboard
 from .permissions import Permission, Permissions, PermissionStatus
 from .windows import Window, WindowInfo, Windows, WindowState
 
@@ -33,7 +35,7 @@ __version__ = "0.1.0"
 __all__ = [
     "AmbiguousTargetError", "Backend", "Capability", "ClosedSessionError", "Desktop", "DesktopError",
     "Display", "DisplayId", "Displays", "DisplayTopology", "DisplayTopologyChangedError", "Feature",
-    "NativeCallError", "NativeLibraryError", "NativeSymbolError",
+    "InputCancelledError", "Key", "Keyboard", "NativeCallError", "NativeLibraryError", "NativeSymbolError",
     "OperationTimeoutError", "PermissionDeniedError", "PermissionRequiredError",
     "Permission", "Permissions", "PermissionState", "PermissionStatus", "PixelLocation", "PixelPoint", "PixelSize",
     "Point", "Rect", "Size", "StaleTargetError", "Support", "TargetNotFoundError",

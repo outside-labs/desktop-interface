@@ -20,6 +20,7 @@ TYPES = (
     "CFTypeRef", "CFStringRef", "CFStringEncoding", "CGPoint", "CGSize", "CGRect", "CFRange",
     "CFNumberType", "CGWindowID", "CGWindowListOption",
     "AXError", "AXValueType", "pid_t",
+    "CGKeyCode", "CGEventFlags", "CGEventSourceStateID", "CGEventTapLocation", "UniCharCount",
 )
 FIELDS = {"CGPoint": ("x", "y"), "CGSize": ("width", "height"),
           "CGRect": ("origin", "size"), "CFRange": ("location", "length")}
@@ -175,6 +176,28 @@ def check_synthetic_ax_values() -> None:
     print("Synthetic Accessibility geometry and ownership verified")
 
 
+def check_synthetic_keyboard() -> None:
+    library, foundation = macos.core_graphics(), macos.core_foundation()
+    release = foundation.bind(macos.CF_RELEASE)
+    pointer = library.bind(macos.CG_KEY_EVENT)(None, 0, True)
+    if not pointer:
+        raise NativeCallError("CGEventCreateKeyboardEvent")
+    expected = "Fixture é👋\0".encode("utf-16-le")
+    count = len(expected) // 2
+    data = (c.c_uint16 * count).from_buffer_copy(expected)
+    with OwnedReference(pointer, release) as event:
+        library.bind(macos.CG_EVENT_UNICODE)(event.pointer, count, data)
+        library.bind(macos.CG_EVENT_FLAGS)(event.pointer, 1 << 17)
+        get_text = library.bind(FunctionSpec("CGEventKeyboardGetUnicodeString",
+            (macos.CFTypeRef, macos.UniCharCount, c.POINTER(macos.UniCharCount), c.POINTER(c.c_uint16)), None))
+        get_flags = library.bind(FunctionSpec("CGEventGetFlags", (macos.CFTypeRef,), macos.CGEventFlags))
+        output, used = (c.c_uint16 * count)(), macos.UniCharCount()
+        get_text(event.pointer, count, c.byref(used), output)
+        if used.value != count or bytes(output) != expected or get_flags(event.pointer) != 1 << 17:
+            raise AssertionError("Synthetic keyboard event did not round-trip")
+    print("Synthetic Quartz Unicode keyboard event verified without posting")
+
+
 def main() -> None:
     if sys.platform != "darwin":
         print("macOS ABI check skipped on this platform")
@@ -184,6 +207,7 @@ def main() -> None:
     check_synthetic_reference()
     check_synthetic_windows()
     check_synthetic_ax_values()
+    check_synthetic_keyboard()
 
 
 if __name__ == "__main__":

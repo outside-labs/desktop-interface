@@ -22,6 +22,11 @@ UTF8 = 0x08000100
 AXError = c.c_int32
 AXValueType = c.c_uint32
 pid_t = c.c_int32
+CGKeyCode = c.c_uint16
+CGEventFlags = c.c_uint64
+CGEventSourceStateID = c.c_int32
+CGEventTapLocation = c.c_uint32
+UniCharCount = c.c_uint64
 
 
 class CGPoint(c.Structure):
@@ -94,6 +99,12 @@ CG_PREFLIGHT_CAPTURE = FunctionSpec("CGPreflightScreenCaptureAccess", (), c.c_bo
 CG_REQUEST_LISTEN = FunctionSpec("CGRequestListenEventAccess", (), c.c_bool)
 CG_REQUEST_POST = FunctionSpec("CGRequestPostEventAccess", (), c.c_bool)
 CG_REQUEST_CAPTURE = FunctionSpec("CGRequestScreenCaptureAccess", (), c.c_bool)
+CG_KEY_STATE = FunctionSpec("CGEventSourceKeyState", (CGEventSourceStateID, CGKeyCode), c.c_bool)
+CG_FLAGS_STATE = FunctionSpec("CGEventSourceFlagsState", (CGEventSourceStateID,), CGEventFlags)
+CG_KEY_EVENT = FunctionSpec("CGEventCreateKeyboardEvent", (CFTypeRef, CGKeyCode, c.c_bool), CFTypeRef)
+CG_EVENT_POST = FunctionSpec("CGEventPost", (CGEventTapLocation, CFTypeRef), None)
+CG_EVENT_FLAGS = FunctionSpec("CGEventSetFlags", (CFTypeRef, CGEventFlags), None)
+CG_EVENT_UNICODE = FunctionSpec("CGEventKeyboardSetUnicodeString", (CFTypeRef, UniCharCount, c.POINTER(c.c_uint16)), None)
 
 CG_ACTIVE_DISPLAYS = FunctionSpec(
     "CGGetActiveDisplayList", (c.c_uint32, c.POINTER(CGDirectDisplayID), c.POINTER(c.c_uint32)), CGError,
