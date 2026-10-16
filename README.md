@@ -114,11 +114,13 @@ a unique match by owner PID, bounds (within half a logical point), and title
 when available. Unavailable or indistinguishable matches fail before writing.
 IDs/PIDs and metadata checks cannot eliminate all target-replacement races.
 
-Setters check writability; focus checks the app's focused-window/frontmost
-attributes and the window's advertised raise action before changing anything.
+Setters check writability; focus checks the window's main attribute, the app's
+frontmost attribute and the advertised raise action before changing anything.
 An application may reject or adjust a request. Without `timeout`, return `None`
 means submission only. `timeout=0..30` waits for a copied `WindowState` or raises
 `OperationTimeoutError`; a timeout does not roll back a delivered action.
+Confirmed move/resize waits for Quartz and Accessibility geometry to agree,
+so a following operation can rematch the updated window.
 Matching has a five-second query budget, at most 128 Accessibility windows and
 0.25-second individual IPC timeouts. Confirmation has a separate wait budget
 with a bounded final read. No global Accessibility timeout is changed.

@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 
-from desktop_interface import Backend, Desktop, Permission, Point, Size, WindowId
+from desktop_interface import Backend, Desktop, Permission, Point, Size, StaleTargetError, WindowId
 
 
 def wait_for(predicate, *, timeout=5):
@@ -71,8 +71,16 @@ def main():
                 if record.process_id != process.pid or record.bounds is None:
                     raise AssertionError("Fixture window identity/bounds differ")
                 result = {"displays": len(topology.displays), "fixture_identity": True}
+                if args.window_control or args.keyboard or args.mouse:
+                    def accessible():
+                        try:
+                            return window.state()
+                        except StaleTargetError:
+                            # The new AppKit process publishes its AX windows after startup.
+                            return None
+                    before = wait_for(accessible)
+                    record = window.read()
                 if args.window_control:
-                    before = window.state()
                     try:
                         window.move(Point(record.bounds.x + 20, record.bounds.y + 20), timeout=2)
                         window.resize(Size(record.bounds.width + 20, record.bounds.height + 20), timeout=2)
