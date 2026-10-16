@@ -11,8 +11,9 @@ library loading, and deterministic reference cleanup. Its macOS ABI declarations
 are checked against system SDK headers, with a synthetic CoreFoundation string
 used to verify Unicode and ownership without accessing the desktop.
 An explicit macOS `Desktop` session provides nonprompting permission checks and
-separate permission requests. Display discovery, window control, keyboard and
-mouse input, accessibility inspection, and capture remain planned features.
+separate permission requests. Active-display snapshots provide logical bounds,
+backing-pixel dimensions, rotation and main/mirror metadata. Window control,
+keyboard/mouse input, accessibility inspection, and capture remain planned.
 Importing the package does not load native libraries or request system access.
 
 Python 3.12 or later is required. Development uses Python 3.14; CI checks Python
@@ -41,6 +42,33 @@ Permission grants do not imply that a desktop feature is implemented. Consult
 `desktop.capabilities()` for feature support. Close sessions explicitly or use
 their context manager; retained managers reject operations after session close.
 
+## Display snapshots
+
+```python
+from desktop_interface import Desktop, Point
+
+with Desktop() as desktop:
+    topology = desktop.displays.snapshot()
+    if topology.main is not None:
+        location = topology.logical_to_pixel(topology.main.bounds.origin,
+                                             display_id=topology.main.id)
+        assert topology.pixel_to_logical(location) == topology.main.bounds.origin
+```
+
+Snapshots list active drawable displays. Sleeping outputs and online-only
+hardware mirrors are outside that list. Metadata is read twice with a bounded
+retry when IDs or modes change; the result is a stable observation, not an
+atomic operating-system transaction.
+
+Bounds use global logical points, including negative monitor origins. Pixel
+dimensions come from the current display mode and use desktop orientation;
+they do not claim to describe panel hardware. `PixelPoint` is a continuous
+display-local coordinate without implicit raster rounding. Rotation is already
+normalized when mapping mode dimensions; conversion does not rotate again.
+Overlapping displays require an explicit display ID. A converted pixel location
+belongs to its exact topology snapshot and cannot be silently reused with a
+different snapshot. Old snapshots remain useful as immutable data after close.
+
 ## Development
 
 ```sh
@@ -51,6 +79,7 @@ uv run --frozen python scripts/check_distribution.py
 uv run --frozen python scripts/check_macos_abi.py
 # Opt-in, nonprompting native grant check; never run by default CI:
 uv run --frozen python scripts/check_native_desktop.py --permissions
+uv run --frozen python scripts/check_native_desktop.py --displays
 ```
 
 The distribution check builds wheel and source archives, rebuilds the source

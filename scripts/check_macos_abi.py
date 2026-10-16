@@ -13,7 +13,7 @@ from desktop_interface._native.ownership import OwnedReference
 
 
 TYPES = (
-    "CGFloat", "CGDirectDisplayID", "CGError", "Boolean", "CFIndex", "CFTypeID",
+    "CGFloat", "CGDirectDisplayID", "CGError", "Boolean", "boolean_t", "CFIndex", "CFTypeID",
     "CFTypeRef", "CFStringRef", "CFStringEncoding", "CGPoint", "CGSize", "CGRect", "CFRange",
 )
 FIELDS = {"CGPoint": ("x", "y"), "CGSize": ("width", "height"),
