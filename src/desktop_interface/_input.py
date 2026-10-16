@@ -33,6 +33,8 @@ def cleanup(actions):
     for action in actions:
         try:
             action()
+        except BaseExceptionGroup as error:
+            failures.extend(error.exceptions)
         except BaseException as error:
             failures.append(error)
     if failures:

@@ -21,6 +21,7 @@ TYPES = (
     "CFNumberType", "CGWindowID", "CGWindowListOption",
     "AXError", "AXValueType", "pid_t",
     "CGKeyCode", "CGEventFlags", "CGEventSourceStateID", "CGEventTapLocation", "UniCharCount",
+    "CGEventType", "CGMouseButton", "CGEventField", "CGScrollEventUnit",
 )
 FIELDS = {"CGPoint": ("x", "y"), "CGSize": ("width", "height"),
           "CGRect": ("origin", "size"), "CFRange": ("location", "length")}
@@ -198,6 +199,29 @@ def check_synthetic_keyboard() -> None:
     print("Synthetic Quartz Unicode keyboard event verified without posting")
 
 
+def check_synthetic_mouse() -> None:
+    library, foundation = macos.core_graphics(), macos.core_foundation()
+    release = foundation.bind(macos.CF_RELEASE)
+    integer = library.bind(FunctionSpec("CGEventGetIntegerValueField",
+        (macos.CFTypeRef, macos.CGEventField), c.c_int64))
+    kind = library.bind(FunctionSpec("CGEventGetType", (macos.CFTypeRef,), macos.CGEventType))
+    pointer = library.bind(macos.CG_MOUSE_EVENT)(None, 3, macos.CGPoint(-20.5, 30), 1)
+    if not pointer:
+        raise NativeCallError("CGEventCreateMouseEvent")
+    with OwnedReference(pointer, release) as event:
+        library.bind(macos.CG_EVENT_INTEGER)(event.pointer, 1, 2)
+        point = library.bind(macos.CG_POINTER_LOCATION)(event.pointer)
+        if kind(event.pointer) != 3 or integer(event.pointer, 1) != 2 or (point.x, point.y) != (-20.5, 30):
+            raise AssertionError("Synthetic pointer event did not round-trip")
+    pointer = library.bind(macos.CG_SCROLL_EVENT)(None, 1, 2, -3, 2, 0)
+    if not pointer:
+        raise NativeCallError("CGEventCreateScrollWheelEvent2")
+    with OwnedReference(pointer, release) as event:
+        if integer(event.pointer, 11) != -3 or integer(event.pointer, 12) != 2:
+            raise AssertionError("Synthetic scroll event did not round-trip")
+    print("Synthetic Quartz pointer/scroll events verified without posting")
+
+
 def main() -> None:
     if sys.platform != "darwin":
         print("macOS ABI check skipped on this platform")
@@ -208,6 +232,7 @@ def main() -> None:
     check_synthetic_windows()
     check_synthetic_ax_values()
     check_synthetic_keyboard()
+    check_synthetic_mouse()
 
 
 if __name__ == "__main__":

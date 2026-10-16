@@ -27,6 +27,10 @@ CGEventFlags = c.c_uint64
 CGEventSourceStateID = c.c_int32
 CGEventTapLocation = c.c_uint32
 UniCharCount = c.c_uint64
+CGEventType = c.c_uint32
+CGMouseButton = c.c_uint32
+CGEventField = c.c_uint32
+CGScrollEventUnit = c.c_uint32
 
 
 class CGPoint(c.Structure):
@@ -105,6 +109,13 @@ CG_KEY_EVENT = FunctionSpec("CGEventCreateKeyboardEvent", (CFTypeRef, CGKeyCode,
 CG_EVENT_POST = FunctionSpec("CGEventPost", (CGEventTapLocation, CFTypeRef), None)
 CG_EVENT_FLAGS = FunctionSpec("CGEventSetFlags", (CFTypeRef, CGEventFlags), None)
 CG_EVENT_UNICODE = FunctionSpec("CGEventKeyboardSetUnicodeString", (CFTypeRef, UniCharCount, c.POINTER(c.c_uint16)), None)
+CG_POINTER_EVENT = FunctionSpec("CGEventCreate", (CFTypeRef,), CFTypeRef)
+CG_POINTER_LOCATION = FunctionSpec("CGEventGetLocation", (CFTypeRef,), CGPoint)
+CG_MOUSE_EVENT = FunctionSpec("CGEventCreateMouseEvent", (CFTypeRef, CGEventType, CGPoint, CGMouseButton), CFTypeRef)
+CG_BUTTON_STATE = FunctionSpec("CGEventSourceButtonState", (CGEventSourceStateID, CGMouseButton), c.c_bool)
+CG_SCROLL_EVENT = FunctionSpec("CGEventCreateScrollWheelEvent2",
+    (CFTypeRef, CGScrollEventUnit, c.c_uint32, c.c_int32, c.c_int32, c.c_int32), CFTypeRef)
+CG_EVENT_INTEGER = FunctionSpec("CGEventSetIntegerValueField", (CFTypeRef, CGEventField, c.c_int64), None)
 
 CG_ACTIVE_DISPLAYS = FunctionSpec(
     "CGGetActiveDisplayList", (c.c_uint32, c.POINTER(CGDirectDisplayID), c.POINTER(c.c_uint32)), CGError,

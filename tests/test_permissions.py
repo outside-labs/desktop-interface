@@ -149,7 +149,7 @@ class DesktopTests(unittest.TestCase):
             self.assertEqual({report.feature for report in reports}, set(Feature))
             supported = {report.feature for report in reports if report.support is Support.SUPPORTED}
             self.assertEqual(supported, {Feature.DISPLAY_INFO, Feature.WINDOW_INFO,
-                                         Feature.WINDOW_CONTROL, Feature.KEYBOARD_INPUT})
+                                         Feature.WINDOW_CONTROL, Feature.KEYBOARD_INPUT, Feature.MOUSE_INPUT})
             desktop.close()
 
     def test_unimplemented_or_mismatched_backends_fail_without_loading(self):

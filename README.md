@@ -16,8 +16,9 @@ backing-pixel dimensions, rotation and main/mirror metadata. Window discovery
 provides copied metadata, exact filters and references that revalidate their
 native ID and owner. Accessibility-backed window control supports advertised
 attributes/actions and optional confirmation. Keyboard input supports physical
-positions, Unicode text and owned key contexts. Mouse input, accessibility
-inspection, and capture remain planned.
+positions, Unicode text and owned key contexts. Mouse input supports logical
+pointer motion, buttons, scrolling and cancellable dragging. Accessibility-tree
+inspection, listeners and capture remain planned.
 Importing the package does not load native libraries or request system access.
 
 Python 3.12 or later is required. Development uses Python 3.14; CI checks Python
@@ -151,6 +152,34 @@ distinguished perfectly from synthetic ownership. A closed session rejects input
 Durations and total text-interval waits are bounded to 30 seconds. Pass a
 `threading.Event` as `cancel` for interruptible waits and text sequences.
 
+## Mouse input
+
+`desktop.mouse.position()` returns a global logical `Point`.
+`move(Point(...), duration=...)`, `click()`, `drag(Point(...))`, `down()`, `up()`
+and `with desktop.mouse.hold(MouseButton.LEFT): ...` submit pointer/button
+events. Left, right and middle buttons are supported; multiple held-button
+chords are explicitly unsupported. Nested holds preserve existing acquisitions,
+and a click does not release an externally held button. Dragging refuses to
+acquire an externally held button. Session close releases both buttons and keys.
+
+Motion checks active-display bounds, including negative origins, without pixel
+scaling. Timed motion uses up to 60 steps per nominal second, plus native-call
+overhead. The full path must remain on active displays; a straight path through
+a monitor gap is rejected before pressing a drag button. Topology changes
+between steps abort the path and release acquired state. There is no atomic
+guarantee against a topology or focus change between validation and OS delivery.
+Use a `threading.Event` as `cancel` for motion, dragging or repeated clicks.
+
+`scroll(vertical, horizontal=0, unit=ScrollUnit.LINE)` accepts signed 32-bit
+deltas. `ScrollUnit.PIXEL` selects Quartz pixel-scroll units; those deltas are
+independent of display-coordinate conversion. Positive native deltas conventionally
+scroll up/left; applications and system scrolling preferences determine the
+effect. Large deltas may behave differently by application. `click(count=2)`
+sets native click-count fields; no system double-click timing is changed.
+Pointer writes require the same event-posting grant as keyboard input. Reads
+and successful posting do not establish that a particular application received
+or acted on an event.
+
 ## Development
 
 ```sh
@@ -170,6 +199,8 @@ uv run --frozen python scripts/check_live_desktop.py
 uv run --frozen python scripts/check_live_desktop.py --window-control
 # Also submit known text and a physical key; temporarily leave the fixture focused:
 uv run --frozen python scripts/check_live_desktop.py --keyboard
+# Exercise all three control surfaces against the fixture and restore its state:
+uv run --frozen python scripts/check_live_desktop.py --window-control --keyboard --mouse
 ```
 
 The distribution check builds wheel and source archives, rebuilds the source
