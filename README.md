@@ -14,7 +14,8 @@ An explicit macOS `Desktop` session provides nonprompting permission checks and
 separate permission requests. Active-display snapshots provide logical bounds,
 backing-pixel dimensions, rotation and main/mirror metadata. Window discovery
 provides copied metadata, exact filters and references that revalidate their
-native ID and owner. Window control, keyboard/mouse input, accessibility
+native ID and owner. Accessibility-backed window control supports advertised
+attributes/actions and optional confirmation. Keyboard/mouse input, accessibility
 inspection, and capture remain planned.
 Importing the package does not load native libraries or request system access.
 
@@ -104,6 +105,22 @@ explicitly instead of returning a silently truncated list. A Quartz API null
 result is a native failure, distinct from a valid empty list; a GUI session
 or window server may be unavailable. No permission request is triggered.
 
+`window.state()`, `move(Point(...))`, `resize(Size(...))`, `focus()` and
+`minimize(True/False)` require an existing Accessibility grant. The public
+Accessibility API has no documented Quartz-window-ID lookup: control requires
+a unique match by owner PID, bounds (within half a logical point), and title
+when available. Unavailable or indistinguishable matches fail before writing.
+IDs/PIDs and metadata checks cannot eliminate all target-replacement races.
+
+Setters check writability; focus checks the app's focused-window/frontmost
+attributes and the window's advertised raise action before changing anything.
+An application may reject or adjust a request. Without `timeout`, return `None`
+means submission only. `timeout=0..30` waits for a copied `WindowState` or raises
+`OperationTimeoutError`; a timeout does not roll back a delivered action.
+Matching has a five-second query budget, at most 128 Accessibility windows and
+0.25-second individual IPC timeouts. Confirmation has a separate wait budget
+with a bounded final read. No global Accessibility timeout is changed.
+
 ## Development
 
 ```sh
@@ -117,6 +134,10 @@ uv run --frozen python scripts/check_native_desktop.py --permissions
 uv run --frozen python scripts/check_native_desktop.py --displays
 # In a logged-in GUI session, for an explicitly selected synthetic fixture:
 # uv run --frozen python scripts/check_native_desktop.py --window-id ID --process-id PID
+# From a logged-in GUI Terminal; opens and closes a synthetic fixture window:
+uv run --frozen python scripts/check_live_desktop.py
+# Explicitly exercise/restore only that fixture's window attributes:
+uv run --frozen python scripts/check_live_desktop.py --window-control
 ```
 
 The distribution check builds wheel and source archives, rebuilds the source
