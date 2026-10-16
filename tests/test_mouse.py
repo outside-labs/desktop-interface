@@ -62,6 +62,16 @@ class MouseTests(unittest.TestCase):
         with self.assertRaises(UnsupportedFeatureError):
             mouse.drag(Point(0, 0))
 
+    def test_old_context_does_not_release_a_later_acquisition_of_the_same_button(self):
+        mouse = self.session()
+        with mouse.hold():
+            mouse.up()
+            mouse.down()
+        self.assertTrue(mouse._owned)
+        self.assertEqual(self.events(), [(MouseButton.LEFT, True), (MouseButton.LEFT, False), (MouseButton.LEFT, True)])
+        self.desktop.close()
+        self.assertEqual(self.events()[-1], (MouseButton.LEFT, False))
+
     def test_drag_emits_drag_motion_and_releases_on_cancel(self):
         mouse = self.session()
         cancel = Event()
