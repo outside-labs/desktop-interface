@@ -47,6 +47,10 @@ class StaleTargetError(DesktopError):
     """The referenced window or UI element no longer identifies a live target."""
 
 
+class TargetNotFoundError(DesktopError):
+    """No current target matches the requested identity or filters."""
+
+
 class AmbiguousTargetError(DesktopError):
     """More than one target matches and an explicit selection is required."""
 

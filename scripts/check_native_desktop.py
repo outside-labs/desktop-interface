@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from desktop_interface import Desktop, DisplayTopologyChangedError
+from desktop_interface import Backend, Desktop, DisplayTopologyChangedError, WindowId
 
 
 def check_displays(desktop: Desktop) -> dict:
@@ -52,8 +52,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--permissions", action="store_true", help="Check existing grants without requesting access")
     parser.add_argument("--displays", action="store_true", help="Compare active display metadata against a native SDK probe")
+    parser.add_argument("--window-id", type=int, help="Read only this explicitly selected fixture window")
+    parser.add_argument("--process-id", type=int, help="Expected owner of --window-id")
     args = parser.parse_args()
-    if not (args.permissions or args.displays):
+    if (args.window_id is None) != (args.process_id is None):
+        parser.error("--window-id and --process-id must be supplied together")
+    if args.window_id is not None and not 0 < args.window_id <= 0xFFFFFFFF:
+        parser.error("--window-id must be a nonzero 32-bit native ID")
+    if args.process_id is not None and not 0 <= args.process_id <= 0x7FFFFFFF:
+        parser.error("--process-id must fit a native process ID")
+    if not (args.permissions or args.displays or args.window_id is not None):
         parser.error("Choose an explicit native check, such as --permissions")
     with Desktop() as desktop:
         output = {"backend": desktop.backend.value}
@@ -66,6 +74,13 @@ def main() -> None:
             } for report in reports}
         if args.displays:
             output["displays"] = check_displays(desktop)
+        if args.window_id is not None:
+            window = desktop.windows.get(WindowId(Backend.MACOS, args.window_id))
+            if window.process_id != args.process_id:
+                raise AssertionError("Selected window does not have the expected fixture owner")
+            record = window.read()
+            output["window"] = {"identity_matched": True, "bounds_available": record.bounds is not None,
+                                "title_available": record.title is not None}
         print(json.dumps(output, sort_keys=True))
 
 
