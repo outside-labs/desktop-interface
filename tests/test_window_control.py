@@ -100,6 +100,9 @@ class WindowControlTests(unittest.TestCase):
                                         ("minimize", True, Rect(10, 20, 300, 200))):
             with self.subTest(action=action):
                 fixture = AXHeap()
+                if action in ("move", "resize"):
+                    updated = WindowInfo(fixture.info.id, 42, expected, "Fixture")
+                    fixture.windows.get.side_effect = [fixture.info, updated]
                 state = fixture.run(action, value, 0)
                 self.assertEqual(state.bounds, expected)
                 self.assertEqual(state.minimized, action == "minimize")
@@ -108,16 +111,33 @@ class WindowControlTests(unittest.TestCase):
                 self.assertEqual(fixture.released.count(fixture.window), 1)
                 fixture.functions["AXUIElementIsAttributeSettable"].assert_called_once()
 
+    def test_confirmed_geometry_waits_for_quartz_to_catch_up_without_reposting(self):
+        fixture = AXHeap()
+        updated = WindowInfo(fixture.info.id, 42, Rect(30, 40, 300, 200), "Fixture")
+        fixture.windows.get.side_effect = [fixture.info, fixture.info, updated]
+        state = fixture.run("move", Point(30, 40), 1)
+        self.assertEqual(state.bounds, updated.bounds)
+        self.assertEqual(fixture.windows.get.call_count, 3)
+        fixture.functions["AXUIElementSetAttributeValue"].assert_called_once()
+
     def test_focus_checks_every_operation_before_writing_and_confirms(self):
         fixture = AXHeap()
         self.assertTrue(fixture.run("focus", timeout=0).focused)
         fixture.functions["AXUIElementPerformAction"].assert_called_once()
         fixture = AXHeap()
-        fixture.unsettable.add("AXFocusedWindow")
+        fixture.unsettable.add("AXMain")
         with self.assertRaises(UnsupportedFeatureError):
             fixture.run("focus")
         fixture.functions["AXUIElementSetAttributeValue"].assert_not_called()
         fixture.functions["AXUIElementPerformAction"].assert_not_called()
+
+    def test_readonly_focused_window_does_not_block_advertised_main_window_focus(self):
+        fixture = AXHeap()
+        fixture.unsettable.add("AXFocusedWindow")
+        self.assertTrue(fixture.run("focus", timeout=0).focused)
+        written = [fixture.object(call.args[1])[1]
+                   for call in fixture.functions["AXUIElementSetAttributeValue"].call_args_list]
+        self.assertEqual(written, ["AXMain", "AXFrontmost"])
 
     def test_unadvertised_raise_is_rejected_before_any_focus_change(self):
         fixture = AXHeap()

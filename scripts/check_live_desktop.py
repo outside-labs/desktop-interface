@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 
-from desktop_interface import Backend, Desktop, Permission, Point, Size, WindowId
+from desktop_interface import Backend, Desktop, Permission, Point, Size, StaleTargetError, WindowId
 
 
 def wait_for(predicate, *, timeout=5):
@@ -71,8 +71,16 @@ def main():
                 if record.process_id != process.pid or record.bounds is None:
                     raise AssertionError("Fixture window identity/bounds differ")
                 result = {"displays": len(topology.displays), "fixture_identity": True}
+                if args.window_control or args.keyboard or args.mouse:
+                    def accessible():
+                        try:
+                            return window.state()
+                        except StaleTargetError:
+                            # The new AppKit process publishes its AX windows after startup.
+                            return None
+                    before = wait_for(accessible)
+                    record = window.read()
                 if args.window_control:
-                    before = window.state()
                     try:
                         window.move(Point(record.bounds.x + 20, record.bounds.y + 20), timeout=2)
                         window.resize(Size(record.bounds.width + 20, record.bounds.height + 20), timeout=2)
@@ -112,14 +120,18 @@ def main():
                             raise AssertionError("Fixture focus was lost before pointer check")
                     try:
                         focused()
-                        desktop.mouse.move(Point(record.bounds.x + 80, record.bounds.y + 90))
+                        start = Point(record.bounds.x + 80, record.bounds.y + 90)
+                        end = Point(record.bounds.x + 160, record.bounds.y + 110)
+                        desktop.mouse.move(start)
+                        wait_for(lambda: desktop.mouse.position() == start)
                         before_mouse = state()
                         focused()
                         desktop.mouse.click()
                         wait_for(lambda: state()["clicks"] > before_mouse["clicks"]
                                  and state()["releases"] > before_mouse["releases"])
                         focused()
-                        desktop.mouse.drag(Point(record.bounds.x + 160, record.bounds.y + 110), duration=0.2)
+                        desktop.mouse.drag(end, duration=0.2)
+                        wait_for(lambda: desktop.mouse.position() == end)
                         wait_for(lambda: state()["drags"] > before_mouse["drags"]
                                  and state()["releases"] >= before_mouse["releases"] + 2)
                         focused()
@@ -128,6 +140,7 @@ def main():
                         result["mouse_delivery"] = True
                     finally:
                         desktop.mouse.move(saved)
+                        wait_for(lambda: desktop.mouse.position() == saved)
                 print(json.dumps(result, sort_keys=True))
             finally:
                 process.terminate()

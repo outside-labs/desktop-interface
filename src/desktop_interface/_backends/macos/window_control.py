@@ -159,14 +159,14 @@ class MacOSWindowControl:
             if action == "focus":
                 # Check every advertised operation before making the first change.
                 access.settable(app, "AXFrontmost")
-                access.settable(app, "AXFocusedWindow")
+                access.settable(element, "AXMain")
                 result = n.CFTypeRef()
                 access.budget(element)
                 _status(access.ax.bind(n.AX_ACTIONS)(element, c.byref(result)), "AXUIElementCopyActionNames")
                 names = access.own(result)
                 if "AXRaise" not in tuple(access.cf.text(item) for item in access.cf.array(names, limit=32)):
                     raise UnsupportedFeatureError("The window does not advertise AXRaise")
-                access.set(app, "AXFocusedWindow", element)
+                access.set(element, "AXMain", access.boolean(True))
                 access.set(app, "AXFrontmost", access.boolean(True))
                 access.budget(element)
                 _status(access.ax.bind(n.AX_ACTION)(element, access.name("AXRaise")), "AXUIElementPerformAction")
@@ -185,7 +185,7 @@ class MacOSWindowControl:
             # Confirmation has its own budget; individual IPC calls stay bounded.
             access.deadline = deadline + 1
             while True:
-                self.windows.get(info.id, expected_process_id=info.process_id)
+                current = self.windows.get(info.id, expected_process_id=info.process_id)
                 state = access.state(app, element)
                 matched = (state.focused is True if action == "focus" else
                            state.minimized is value if action == "minimize" else
@@ -193,6 +193,9 @@ class MacOSWindowControl:
                                _near(state.bounds, Rect(value.x, value.y, state.bounds.width, state.bounds.height))
                                if action == "move" else
                                _near(state.bounds, Rect(state.bounds.x, state.bounds.y, value.width, value.height))))
+                if matched and action in ("move", "resize"):
+                    # Quartz can lag AX; a confirmed operation must be safe to rematch.
+                    matched = current.bounds is not None and _near(current.bounds, state.bounds)
                 if matched:
                     return state
                 if time.monotonic() >= deadline:
