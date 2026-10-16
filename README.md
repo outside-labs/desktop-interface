@@ -4,7 +4,9 @@ Typed native desktop APIs for Python, starting with macOS. The library is being
 built around documented system APIs and `ctypes`, with no third-party runtime
 dependencies in the core.
 
-This repository currently contains the package foundation. Display discovery,
+The current foundation provides immutable geometry, backend-qualified display
+and window IDs, conservative capability reports, and consistent error types.
+Display discovery,
 window control, keyboard and mouse input, accessibility inspection, and screen
 capture are planned features. There are no desktop automation operations yet.
 Importing the package does not load native libraries or request system access.
