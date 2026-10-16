@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--compile-only", action="store_true")
     parser.add_argument("--window-control", action="store_true", help="move, resize, focus and minimize the fixture")
     parser.add_argument("--keyboard", action="store_true", help="submit synthetic text and physical keys to the focused fixture")
+    parser.add_argument("--mouse", action="store_true", help="click, drag and scroll inside the fixture, restoring the pointer")
     parser.add_argument("--request-permissions", action="store_true", help="explicitly submit required permission requests")
     args = parser.parse_args()
     if sys.platform != "darwin":
@@ -44,16 +45,16 @@ def main():
             topology = desktop.displays.snapshot()
             if not topology.displays:
                 raise SystemExit("No active displays. Run this command from a Terminal in the logged-in GUI session.")
-            if args.window_control or args.keyboard:
+            if args.window_control or args.keyboard or args.mouse:
                 if args.request_permissions:
                     desktop.permissions.request(Permission.ACCESSIBILITY)
                 if not desktop.permissions.check(Permission.ACCESSIBILITY).granted:
-                    raise SystemExit("Accessibility access is needed for --window-control. Grant it to this process/host in System Settings and rerun.")
-            if args.keyboard:
+                    raise SystemExit("Accessibility access is needed for fixture control/focus. Grant it to this process/host in System Settings and rerun.")
+            if args.keyboard or args.mouse:
                 if args.request_permissions:
                     desktop.permissions.request(Permission.POST_EVENTS)
                 if not desktop.permissions.check(Permission.POST_EVENTS).granted:
-                    raise SystemExit("Event-posting access is needed for --keyboard. Grant access and rerun.")
+                    raise SystemExit("Event-posting access is needed for input checks. Grant access and rerun.")
             state_path = work / "state.json"
             process = subprocess.Popen([str(binary), str(state_path)], stdout=subprocess.DEVNULL)
             try:
@@ -102,6 +103,31 @@ def main():
                     wait_for(lambda: state()["key_downs"] > before_keys["key_downs"]
                              and state()["key_ups"] > before_keys["key_ups"])
                     result["keyboard_delivery"] = True
+                if args.mouse:
+                    from desktop_interface import ScrollUnit
+                    window.focus(timeout=2)
+                    saved = desktop.mouse.position()
+                    def focused():
+                        if not window.state().focused:
+                            raise AssertionError("Fixture focus was lost before pointer check")
+                    try:
+                        focused()
+                        desktop.mouse.move(Point(record.bounds.x + 80, record.bounds.y + 90))
+                        before_mouse = state()
+                        focused()
+                        desktop.mouse.click()
+                        wait_for(lambda: state()["clicks"] > before_mouse["clicks"]
+                                 and state()["releases"] > before_mouse["releases"])
+                        focused()
+                        desktop.mouse.drag(Point(record.bounds.x + 160, record.bounds.y + 110), duration=0.2)
+                        wait_for(lambda: state()["drags"] > before_mouse["drags"]
+                                 and state()["releases"] >= before_mouse["releases"] + 2)
+                        focused()
+                        desktop.mouse.scroll(-2, unit=ScrollUnit.LINE)
+                        wait_for(lambda: state()["scrolls"] > before_mouse["scrolls"])
+                        result["mouse_delivery"] = True
+                    finally:
+                        desktop.mouse.move(saved)
                 print(json.dumps(result, sort_keys=True))
             finally:
                 process.terminate()

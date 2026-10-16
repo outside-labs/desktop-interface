@@ -7,6 +7,8 @@ from ..._native import macos as n
 from ..._native.ownership import OwnedReference
 from ...errors import NativeCallError
 from ...keyboard import Key
+from ...geometry import Point
+from ...mouse import MouseButton, ScrollUnit
 
 
 KEY_CODES = dict(zip(
@@ -82,3 +84,54 @@ class MacOSEvents:
                 buffer = (c.c_uint16 * count).from_buffer_copy(payload)
                 set_text(event.pointer, count, buffer)
             yield event.pointer
+
+    def pointer_position(self):
+        release = self.cf.bind(n.CF_RELEASE)
+        get = self.cg.bind(n.CG_POINTER_LOCATION)
+        pointer = self.cg.bind(n.CG_POINTER_EVENT)(None)
+        if not pointer:
+            raise NativeCallError("CGEventCreate")
+        with OwnedReference(pointer, release) as event:
+            location = get(event.pointer)
+            try:
+                return Point(location.x, location.y)
+            except (TypeError, ValueError):
+                raise NativeCallError("CGEventGetLocation") from None
+
+    def button_state(self, button):
+        return bool(self.cg.bind(n.CG_BUTTON_STATE)(0, _BUTTONS[button]))
+
+    def _pointer(self, factory, owned_keys, *, click_count=None):
+        release = self.cf.bind(n.CF_RELEASE)
+        post, flags = self.cg.bind(n.CG_EVENT_POST), self.cg.bind(n.CG_EVENT_FLAGS)
+        integer = self.cg.bind(n.CG_EVENT_INTEGER) if click_count is not None else None
+        current = self.flags(owned_keys)
+        pointer = factory()
+        if not pointer:
+            raise NativeCallError("Quartz pointer event allocation")
+        with OwnedReference(pointer, release) as event:
+            flags(event.pointer, current)
+            if click_count is not None:
+                integer(event.pointer, 1, click_count)  # kCGMouseEventClickState
+            post(0, event.pointer)
+
+    def button_event(self, button, down, point, owned_keys, click_count):
+        code = _BUTTONS[button]
+        kind = ((1, 2) if code == 0 else (3, 4) if code == 1 else (25, 26))[not down]
+        create = self.cg.bind(n.CG_MOUSE_EVENT)
+        self._pointer(lambda: create(None, kind, n.CGPoint(point.x, point.y), code),
+                      owned_keys, click_count=click_count)
+
+    def pointer_move(self, point, button, owned_keys):
+        kind = 5 if button is None else {MouseButton.LEFT: 6, MouseButton.RIGHT: 7, MouseButton.MIDDLE: 27}[button]
+        code = 0 if button is None else _BUTTONS[button]
+        create = self.cg.bind(n.CG_MOUSE_EVENT)
+        self._pointer(lambda: create(None, kind, n.CGPoint(point.x, point.y), code), owned_keys)
+
+    def scroll_event(self, vertical, horizontal, unit, owned_keys):
+        create = self.cg.bind(n.CG_SCROLL_EVENT)
+        self._pointer(lambda: create(None, 1 if unit is ScrollUnit.LINE else 0,
+                                     2, vertical, horizontal, 0), owned_keys)
+
+
+_BUTTONS = {MouseButton.LEFT: 0, MouseButton.RIGHT: 1, MouseButton.MIDDLE: 2}

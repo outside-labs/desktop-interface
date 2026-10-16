@@ -27,6 +27,7 @@ class MacOSBackend:
             Feature.WINDOW_INFO: "Read-only window metadata; individual fields may be redacted.",
             Feature.WINDOW_CONTROL: "Accessibility window control; requires a unique metadata match and access.",
             Feature.KEYBOARD_INPUT: "Physical key and Unicode event posting; submission is not delivery.",
+            Feature.MOUSE_INPUT: "Logical pointer, button and scroll event posting; submission is not delivery.",
         }
         return tuple(
             Capability(Backend.MACOS, feature,
@@ -69,3 +70,18 @@ class MacOSBackend:
 
     def text_pair(self, payload, owned):
         self._events.text_pair(payload, owned)
+
+    def pointer_position(self):
+        return self._events.pointer_position()
+
+    def button_state(self, button):
+        return self._events.button_state(button)
+
+    def pointer_move(self, point, button, owned_keys):
+        self._events.pointer_move(point, button, owned_keys)
+
+    def button_event(self, button, down, point, owned_keys, click_count):
+        self._events.button_event(button, down, point, owned_keys, click_count)
+
+    def scroll_event(self, vertical, horizontal, unit, owned_keys):
+        self._events.scroll_event(vertical, horizontal, unit, owned_keys)
