@@ -6,8 +6,11 @@ dependencies in the core.
 
 The current foundation provides immutable geometry, backend-qualified display
 and window IDs, conservative capability reports, and consistent error types.
-Display discovery,
-window control, keyboard and mouse input, accessibility inspection, and screen
+The private native layer provides explicit function signatures, lazy system
+library loading, and deterministic reference cleanup. Its macOS ABI declarations
+are checked against system SDK headers, with a synthetic CoreFoundation string
+used to verify Unicode and ownership without accessing the desktop.
+Display discovery, window control, keyboard and mouse input, accessibility inspection, and screen
 capture are planned features. There are no desktop automation operations yet.
 Importing the package does not load native libraries or request system access.
 
@@ -21,6 +24,8 @@ the portable foundation and do not imply a working native backend on each OS.
 uv sync --locked
 uv run --frozen python -m unittest discover -s tests -v
 uv run --frozen python scripts/check_distribution.py
+# On macOS with the system SDK available:
+uv run --frozen python scripts/check_macos_abi.py
 ```
 
 The distribution check builds wheel and source archives, rebuilds the source
