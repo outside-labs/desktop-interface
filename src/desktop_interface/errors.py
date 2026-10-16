@@ -61,3 +61,7 @@ class DisplayTopologyChangedError(DesktopError):
 
 class OperationTimeoutError(DesktopError):
     """A bounded wait expired before the requested condition was observed."""
+
+
+class InputCancelledError(DesktopError):
+    """Input was cancelled; acquired state is released on the cleanup path."""

@@ -11,6 +11,7 @@ from .displays import Displays
 from .errors import ClosedSessionError, UnsupportedPlatformError
 from .identifiers import Backend
 from .permissions import Permissions
+from .keyboard import Keyboard
 from .windows import Windows
 
 
@@ -31,6 +32,7 @@ class Desktop:
         self._permissions = Permissions(self)
         self._displays = Displays(self)
         self._windows = Windows(self)
+        self._keyboard = Keyboard(self)
 
     @property
     def backend(self) -> Backend:
@@ -47,6 +49,10 @@ class Desktop:
     @property
     def windows(self) -> Windows:
         return self._windows
+
+    @property
+    def keyboard(self) -> Keyboard:
+        return self._keyboard
 
     @property
     def closed(self) -> bool:
@@ -66,7 +72,11 @@ class Desktop:
 
     def close(self) -> None:
         with self._lock:
-            self._closed = True
+            if not self._closed:
+                try:
+                    self._keyboard._close(self._backend)
+                finally:
+                    self._closed = True
 
     def __enter__(self) -> "Desktop":
         with self._operation():

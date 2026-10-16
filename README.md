@@ -15,7 +15,8 @@ separate permission requests. Active-display snapshots provide logical bounds,
 backing-pixel dimensions, rotation and main/mirror metadata. Window discovery
 provides copied metadata, exact filters and references that revalidate their
 native ID and owner. Accessibility-backed window control supports advertised
-attributes/actions and optional confirmation. Keyboard/mouse input, accessibility
+attributes/actions and optional confirmation. Keyboard input supports physical
+positions, Unicode text and owned key contexts. Mouse input, accessibility
 inspection, and capture remain planned.
 Importing the package does not load native libraries or request system access.
 
@@ -121,6 +122,35 @@ Matching has a five-second query budget, at most 128 Accessibility windows and
 0.25-second individual IPC timeouts. Confirmation has a separate wait budget
 with a bounded final read. No global Accessibility timeout is changed.
 
+## Keyboard input
+
+`desktop.keyboard.press(Key.A)`, `shortcut(Key.COMMAND, Key.A)` and
+`with desktop.keyboard.hold(Key.SHIFT): ...` use physical positions named after
+a US reference keyboard. The active layout determines their text; there is no
+implicit character-to-key lookup. Caps Lock, Fn, media and device-specific keys
+are outside this initial key set. `is_pressed()` reports the current Quartz
+state, separate from an event listener.
+
+`type_text("Fixture 👋")` supplies Unicode independently of key-position mapping.
+It validates the full string, preserves non-BMP surrogate pairs, and limits a
+call to 16384 UTF-16 units. Unpaired surrogates fail before posting. Each Unicode
+scalar gets a prepared down/up pair; frameworks can still reinterpret or ignore
+the Unicode payload. Existing modifiers are preserved and can affect delivery.
+
+Posting requires an existing event-posting grant and targets the current global
+input stream. A successful return means submission, not acknowledgement by an
+application. Use an explicit fixture or verify your target's focus. No permission
+dialog is triggered by a keyboard method.
+
+`down()` returns whether it acquired a key; `up()` releases only a key acquired
+by this session. Keys already down and nested holds are preserved. Contexts,
+exceptions, cancellation and session close release acquisitions in reverse
+order. Cleanup attempts every release and groups failures; OS rejection or
+revoked access can prevent actual release. Concurrent physical input cannot be
+distinguished perfectly from synthetic ownership. A closed session rejects input.
+Durations and total text-interval waits are bounded to 30 seconds. Pass a
+`threading.Event` as `cancel` for interruptible waits and text sequences.
+
 ## Development
 
 ```sh
@@ -138,6 +168,8 @@ uv run --frozen python scripts/check_native_desktop.py --displays
 uv run --frozen python scripts/check_live_desktop.py
 # Explicitly exercise/restore only that fixture's window attributes:
 uv run --frozen python scripts/check_live_desktop.py --window-control
+# Also submit known text and a physical key; temporarily leave the fixture focused:
+uv run --frozen python scripts/check_live_desktop.py --keyboard
 ```
 
 The distribution check builds wheel and source archives, rebuilds the source

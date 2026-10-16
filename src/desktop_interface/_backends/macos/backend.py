@@ -10,6 +10,7 @@ from .displays import MacOSDisplays
 from .permissions import MacOSPermissions
 from .windows import MacOSWindows
 from .window_control import MacOSWindowControl
+from .events import MacOSEvents
 
 
 class MacOSBackend:
@@ -18,12 +19,14 @@ class MacOSBackend:
         self._displays = MacOSDisplays()
         self._windows = MacOSWindows()
         self._window_control = MacOSWindowControl(self._windows)
+        self._events = MacOSEvents()
 
     def capabilities(self) -> tuple[Capability, ...]:
         descriptions = {
             Feature.DISPLAY_INFO: "Active drawable display metadata.",
             Feature.WINDOW_INFO: "Read-only window metadata; individual fields may be redacted.",
             Feature.WINDOW_CONTROL: "Accessibility window control; requires a unique metadata match and access.",
+            Feature.KEYBOARD_INPUT: "Physical key and Unicode event posting; submission is not delivery.",
         }
         return tuple(
             Capability(Backend.MACOS, feature,
@@ -53,3 +56,16 @@ class MacOSBackend:
             raise PermissionRequiredError("Window control requires Accessibility access")
         info = self._windows.get(window_id, expected_process_id=process_id)
         return self._window_control.run(info, action, value, timeout)
+
+    def require_post_access(self):
+        if not self.check_permission(Permission.POST_EVENTS).granted:
+            raise PermissionRequiredError("Input posting requires macOS event-posting access")
+
+    def key_state(self, key):
+        return self._events.key_state(key)
+
+    def key_event(self, key, down, owned):
+        self._events.key_event(key, down, owned)
+
+    def text_pair(self, payload, owned):
+        self._events.text_pair(payload, owned)
