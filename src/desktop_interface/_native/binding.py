@@ -48,27 +48,47 @@ class NativeLibrary:
         self._functions: dict[str, tuple[FunctionSpec, Callable]] = {}
         self._lock = Lock()
 
-    def bind(self, spec: FunctionSpec) -> Callable:
-        if not isinstance(spec, FunctionSpec):
-            raise TypeError("spec must be a FunctionSpec")
+    def _check_platform(self) -> None:
         if sys.platform != self.platform:
             raise UnsupportedPlatformError(f"This system library requires {self.platform}")
         if self.platform == "darwin" and ctypes.sizeof(ctypes.c_void_p) != 8:
             raise UnsupportedPlatformError("The macOS backend requires a 64-bit process")
+
+    def _library(self):
+        """Return the handle while the caller holds the declaration lock."""
+        if self._handle is None:
+            loader = self._loader if self._loader is not None else ctypes.CDLL
+            try:
+                self._handle = loader(self.path)
+            except OSError as error:
+                raise NativeLibraryError(f"Cannot load system library {self.path}") from error
+        return self._handle
+
+    def variable(self, name: str, ctype: type):
+        """Read an explicitly typed exported variable, borrowing its storage."""
+        if not isinstance(name, str) or not name.isidentifier():
+            raise ValueError("A native variable needs an explicit symbol name")
+        if not callable(getattr(ctype, "in_dll", None)):
+            raise TypeError("ctype must support in_dll")
+        self._check_platform()
+        with self._lock:
+            try:
+                return ctype.in_dll(self._library(), name)
+            except ValueError as error:
+                raise NativeSymbolError(f"System variable {name} is unavailable") from error
+
+    def bind(self, spec: FunctionSpec) -> Callable:
+        if not isinstance(spec, FunctionSpec):
+            raise TypeError("spec must be a FunctionSpec")
+        self._check_platform()
         with self._lock:
             if spec.name in self._functions:
                 declaration, function = self._functions[spec.name]
                 if declaration != spec:
                     raise ValueError(f"Conflicting native declaration for {spec.name}")
                 return function
-            if self._handle is None:
-                loader = self._loader if self._loader is not None else ctypes.CDLL
-                try:
-                    self._handle = loader(self.path)
-                except OSError as error:
-                    raise NativeLibraryError(f"Cannot load system library {self.path}") from error
             try:
-                function = getattr(self._handle, spec.name)
+                function = getattr(self._library(), spec.name)
             except AttributeError as error:
                 raise NativeSymbolError(f"System function {spec.name} is unavailable") from error
             function.argtypes = list(spec.argtypes)

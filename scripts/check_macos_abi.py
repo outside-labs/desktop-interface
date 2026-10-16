@@ -24,7 +24,8 @@ def check_layouts() -> None:
     source = (
         "#include <CoreFoundation/CoreFoundation.h>\n"
         "#include <CoreGraphics/CoreGraphics.h>\n"
-        "#include <stddef.h>\n#include <stdio.h>\nint main(void) {\n"
+        "#include <stddef.h>\n#include <stdbool.h>\n#include <stdio.h>\nint main(void) {\n"
+        'printf("bool %zu %zu\\n", sizeof(bool), _Alignof(bool));\n'
         + "\n".join(
             f'printf("{name} %zu %zu\\n", sizeof({name}), _Alignof({name}));'
             for name in TYPES
@@ -53,13 +54,14 @@ def check_layouts() -> None:
         name: (c.sizeof(getattr(macos, name)), c.alignment(getattr(macos, name)))
         for name in TYPES
     }
+    declared["bool"] = (c.sizeof(c.c_bool), c.alignment(c.c_bool))
     declared.update({
         f"{name}.{field}": (getattr(getattr(macos, name), field).offset,)
         for name, fields in FIELDS.items() for field in fields
     })
     if declared != native:
         raise AssertionError(f"SDK ABI mismatch: declared={declared}, SDK={native}")
-    print(f"SDK ABI verified: {len(TYPES)} types and {sum(map(len, FIELDS.values()))} field offsets")
+    print(f"SDK ABI verified: {len(TYPES) + 1} types and {sum(map(len, FIELDS.values()))} field offsets")
 
 
 def check_synthetic_reference() -> None:
@@ -69,6 +71,11 @@ def check_synthetic_reference() -> None:
     create = library.bind(macos.CF_STRING_CREATE)
     get_length = library.bind(macos.CF_STRING_LENGTH)
     get_bytes = library.bind(macos.CF_STRING_BYTES)
+    create_dictionary = library.bind(macos.CF_DICTIONARY_CREATE)
+    dictionary_value = library.bind(macos.CF_DICTIONARY_VALUE)
+    true_value = library.variable("kCFBooleanTrue", macos.CFTypeRef).value
+    if not true_value:
+        raise NativeCallError("kCFBooleanTrue")
     expected = "Synthetic fixture: café 👋\0 tail".encode("utf-8")
     data = (c.c_uint8 * len(expected)).from_buffer_copy(expected)
     pointer = create(None, data, len(expected), macos.UTF8, False)
@@ -90,7 +97,15 @@ def check_synthetic_reference() -> None:
         with OwnedReference(retained, release) as second_owner:
             if second_owner.pointer.value != owned.pointer.value:
                 raise AssertionError("CFRetain returned a different object")
-    print("Synthetic CoreFoundation Unicode and reference ownership verified")
+        keys = (macos.CFTypeRef * 1)(owned.pointer.value)
+        values = (macos.CFTypeRef * 1)(true_value)
+        dictionary = create_dictionary(None, keys, values, 1, None, None)
+        if not dictionary:
+            raise NativeCallError("CFDictionaryCreate")
+        with OwnedReference(dictionary, release) as options:
+            if dictionary_value(options.pointer, owned.pointer) != true_value:
+                raise AssertionError("Borrowed dictionary constants did not round-trip")
+    print("Synthetic CoreFoundation Unicode, variables, dictionary and ownership verified")
 
 
 def main() -> None:
