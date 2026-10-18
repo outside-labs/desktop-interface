@@ -1,8 +1,8 @@
 # Desktop Interface
 
-Typed native desktop APIs for Python, starting with macOS. The library is being
-built around documented system APIs and `ctypes`, with no third-party runtime
-dependencies in the core.
+Typed native desktop APIs for Python, starting with macOS. The library uses
+documented system APIs and `ctypes`, with no third-party runtime dependencies
+in the core.
 
 The current foundation provides immutable geometry, backend-qualified display
 and window IDs, conservative capability reports, and consistent error types.
@@ -21,9 +21,37 @@ pointer motion, buttons, scrolling and cancellable dragging. Accessibility-tree
 inspection, listeners and capture remain planned.
 Importing the package does not load native libraries or request system access.
 
-Python 3.12 or later is required. Development uses Python 3.14; CI checks Python
-3.12 and 3.14 on Linux, and Python 3.14 on Windows and macOS. These checks cover
-the portable foundation and do not imply a working native backend on each OS.
+## Installation and support
+
+```sh
+python -m pip install desktop-interface==0.1.0
+```
+
+Python 3.12 or later is required. The native backend currently requires macOS.
+Windows and Linux can import the package and use portable value types; creating
+a `Desktop` session on those platforms raises `UnsupportedPlatformError`.
+
+| Area | Version 0.1.0 |
+| --- | --- |
+| Portable foundation | Immutable geometry, qualified IDs, capability reports, errors and passive imports. |
+| Permissions | Explicit macOS checks and requests; construction does not prompt. |
+| Displays | Active-display metadata, immutable topology and logical/pixel coordinate conversion. |
+| Windows | Filtered discovery, owner-aware references and bounded Accessibility-backed control. |
+| Keyboard | Physical key positions, Unicode text, shortcuts and scoped held keys. |
+| Mouse | Logical motion, buttons, scrolling, dragging and scoped held buttons. |
+| Planned APIs | Accessibility-tree inspection, global listeners, hotkeys and screen capture. |
+
+CI checks Python 3.12 and 3.14 on Linux, and Python 3.14 on Windows and macOS.
+These checks cover portable contracts, synthetic native values and installed
+distributions. Live native conformance has been verified on macOS 27.0.1 arm64
+with Python 3.14.7, one active display and a synthetic AppKit fixture. That
+fixture acknowledged window control, Unicode and physical-key delivery, mouse
+clicks, dragging and scrolling; its window state and cursor were restored.
+Older macOS, Intel, multiple/rotated displays, other applications and non-US
+keyboard-layout output remain unverified.
+
+This is an initial alpha release. Public APIs may change before 1.0; changes
+and compatibility notes are recorded in [the changelog](CHANGELOG.md).
 
 ## Permissions
 
@@ -212,8 +240,8 @@ inspect application contents, or capture the screen.
 
 The [issue queue](https://github.com/outside-labs/desktop-interface/issues) and
 [development Project](https://github.com/orgs/outside-labs/projects/10) track
-scope, dependencies, and acceptance criteria. The first delivery batch covers
-packaging, core contracts, and the private native binding layer.
+scope, dependencies, and acceptance criteria.
 
-Version 0.1.0 is an unpublished development version. The repository starts
-private; a license and publication path have not been selected.
+## License
+
+Desktop Interface is available under the [MIT License](LICENSE).
