@@ -1,12 +1,16 @@
 """Build and verify isolated wheel and source installations using stdlib tools."""
 
+import argparse
+from email.message import Message
 from email.parser import BytesParser
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 import venv
 import zipfile
 
@@ -18,16 +22,25 @@ def run(*args: str, cwd: Path) -> None:
     subprocess.run(args, cwd=cwd, check=True, timeout=180)
 
 
-def package_files(wheel: Path) -> dict[str, bytes]:
+def check_metadata(content: bytes, version: str) -> None:
+    metadata: Message = BytesParser().parsebytes(content)
+    assert metadata["Name"] == "desktop-interface", "Unexpected distribution name"
+    assert metadata["Version"] == version, "Distribution version differs from project"
+    assert metadata["Requires-Python"] == ">=3.12", "Unexpected Python requirement"
+    assert not metadata.get_all("Requires-Dist"), "Unexpected runtime dependency"
+    assert metadata["License-Expression"] == "MIT", "Expected MIT license metadata"
+    assert metadata.get_all("License-File") == ["LICENSE"], "Expected packaged license"
+
+
+def package_files(wheel: Path, version: str) -> dict[str, bytes]:
     with zipfile.ZipFile(wheel) as archive:
         metadata_names = [
             name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
         ]
         assert len(metadata_names) == 1, "Expected one package metadata file"
-        metadata = BytesParser().parsebytes(archive.read(metadata_names[0]))
-        assert metadata["Name"] == "desktop-interface"
-        assert metadata["Requires-Python"] == ">=3.12"
-        assert not metadata.get_all("Requires-Dist"), "Unexpected runtime dependency"
+        check_metadata(archive.read(metadata_names[0]), version)
+        license_name = metadata_names[0].removesuffix("METADATA") + "licenses/LICENSE"
+        assert archive.read(license_name) == (ROOT / "LICENSE").read_bytes(), "License differs"
         files = {
             name: archive.read(name)
             for name in archive.namelist()
@@ -62,7 +75,22 @@ def check_installation(wheel: Path, environment: Path, cache: Path, cwd: Path) -
     )
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--tag", help="Require the release tag to match the project version")
+    parser.add_argument(
+        "--output-dir", type=Path,
+        help="Copy verified artifacts to a new or empty directory after all checks pass",
+    )
+    args = parser.parse_args(argv)
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+    if args.tag is not None and args.tag != f"v{version}":
+        parser.error(f"release tag must be v{version}, got {args.tag!r}")
+    if args.output_dir is not None and args.output_dir.exists():
+        if not args.output_dir.is_dir() or any(args.output_dir.iterdir()):
+            parser.error("output directory must be new or empty")
+
     with tempfile.TemporaryDirectory(prefix="desktop-interface-distribution-") as temporary:
         work = Path(temporary)
         cache = work / "cache"
@@ -71,9 +99,16 @@ def main() -> None:
         wheels = list(artifacts.glob("*.whl"))
         sources = list(artifacts.glob("*.tar.gz"))
         assert len(wheels) == len(sources) == 1
-        original_files = package_files(wheels[0])
+        original_files = package_files(wheels[0], version)
         extracted = work / "source"
         with tarfile.open(sources[0]) as archive:
+            prefix = f"desktop_interface-{version}/"
+            metadata_file = archive.extractfile(prefix + "PKG-INFO")
+            license_file = archive.extractfile(prefix + "LICENSE")
+            assert metadata_file is not None and license_file is not None
+            with metadata_file, license_file:
+                check_metadata(metadata_file.read(), version)
+                assert license_file.read() == (ROOT / "LICENSE").read_bytes(), "License differs"
             for member in archive.getmembers():
                 path = Path(member.name)
                 assert not path.is_absolute() and ".." not in path.parts
@@ -89,9 +124,13 @@ def main() -> None:
         )
         rebuilt_wheels = list(rebuilt.glob("*.whl"))
         assert len(rebuilt_wheels) == 1
-        assert package_files(rebuilt_wheels[0]) == original_files, "Source build differs from wheel"
+        assert package_files(rebuilt_wheels[0], version) == original_files, "Source build differs from wheel"
         check_installation(wheels[0], work / "wheel-env", cache, work)
         check_installation(rebuilt_wheels[0], work / "source-env", cache, work)
+        if args.output_dir is not None:
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            for artifact in (wheels[0], sources[0]):
+                shutil.copy2(artifact, args.output_dir / artifact.name)
     print("Wheel and source distribution checks passed")
 
 
