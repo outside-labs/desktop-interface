@@ -51,7 +51,8 @@ Older macOS, Intel, multiple/rotated displays, other applications and non-US
 keyboard-layout output remain unverified.
 
 This is an initial alpha release. Public APIs may change before 1.0; changes
-and compatibility notes are recorded in [the changelog](CHANGELOG.md).
+and compatibility notes are recorded in
+[the changelog](https://github.com/outside-labs/desktop-interface/blob/main/CHANGELOG.md).
 
 ## Permissions
 
@@ -238,10 +239,24 @@ archive, and checks both installations in fresh environments outside the
 checkout. Tests use the standard library. Routine checks do not send input,
 inspect application contents, or capture the screen.
 
+## Releases
+
+After the release commit passes CI on `main`, a matching version tag (for
+example, `v0.1.0`) starts
+[the release workflow](https://github.com/outside-labs/desktop-interface/blob/main/.github/workflows/release.yaml).
+It reruns the cross-platform checks, verifies tag and package versions, and
+checks both distributions and clean installations before retaining the exact
+artifacts for publication. A separate job publishes through PyPI Trusted
+Publishing in the `pypi` environment, without a stored API token. The trusted
+publisher must name `outside-labs/desktop-interface`, `release.yaml` and `pypi`.
+Allow the intended version tag in the environment's deployment policy before
+pushing it.
+
 The [issue queue](https://github.com/outside-labs/desktop-interface/issues) and
 [development Project](https://github.com/orgs/outside-labs/projects/10) track
 scope, dependencies, and acceptance criteria.
 
 ## License
 
-Desktop Interface is available under the [MIT License](LICENSE).
+Desktop Interface is available under the
+[MIT License](https://github.com/outside-labs/desktop-interface/blob/main/LICENSE).
